@@ -1,17 +1,18 @@
 package com.zjy.scholar;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jsoup.Connection;
 import org.jsoup.Connection.Method;
-import org.jsoup.Connection.Response;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.zjy.cookie.CookieManager;
 import com.zjy.domain.Thsis;
 
 /**
@@ -23,9 +24,11 @@ import com.zjy.domain.Thsis;
  * @note begin modify by 修改人 修改时间 修改内容摘要说明
  */
 public final class GoogleScholarReaderHelper {
+	static final Logger logger = LoggerFactory
+			.getLogger(GoogleScholarReaderHelper.class);
 
 	/** The Constant GCR_SEARCH_THSIS_URL. */
-	private static final String GCR_SEARCH_THSIS_URL = "http://scholar.google.com/scholar?hl=en&as_occt=title&q=allintitle:";
+	private static final String GCR_SEARCH_THSIS_URL = "http://scholar.google.com/scholar?hl=en&q=allintitle:";
 
 	/** The class for the Thsis element in the DOM. **/
 	private static final String THSIS_ELEMENT_CLASS = "gs_ri";
@@ -35,10 +38,6 @@ public final class GoogleScholarReaderHelper {
 
 	/** The class for the thsis_citiedby_class element in the THSIS DOM. **/
 	private static final String THSIS_CITIEDBY_CLASS = "gs_fl";
-	/**
-	 * SESSIONID 默认为空
-	 */
-	private static String SESSIONID = "";
 
 	private GoogleScholarReaderHelper() {
 		// Utility Class, don't instantiate.
@@ -46,7 +45,7 @@ public final class GoogleScholarReaderHelper {
 
 	/**
 	 * 
-	 * \brief 利用Jsoup请求连接地址，为保持会话需要添加SESSIONID信息 ，为模拟浏览器行为添加Mozilla代理
+	 * \brief 利用Jsoup请求连接地址 ，为模拟浏览器行为添加Mozilla代理
 	 * 
 	 * @param url
 	 * @return 返回的Document可以直接被Jsoup识别解析
@@ -57,47 +56,32 @@ public final class GoogleScholarReaderHelper {
 	 * @note begin modify by 修改人 修改时间 修改内容摘要说明
 	 */
 	public static Document connect(String url) throws IOException {
+		logger.info("开启连接");
+		// 建立连接
 		Connection conn = Jsoup.connect(url);
-		conn.userAgent("Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+		conn.header("Referer", "http://scholar.google.com/");
+		// 设置代理
+		conn.userAgent("Mozilla/17.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+		conn.timeout(3*1000);
 		conn.method(Method.POST);
+		
+		// 获取返回信息
 		Document document = conn.get();
+		logger.info("成功获取文档信息");
 		return document;
 	}
-//	public static Document connect(String url) throws IOException {
-//		String sessionID = SESSIONID;
-//		Connection conn = null;
-//		if (sessionID != null && !"".equals(sessionID)) {
-//			conn = Jsoup.connect(url)
-//					.cookie(CookieManager.SESSIONID, sessionID);
-//		} else {
-//			conn = Jsoup.connect(url);
-//		}
-//		if (conn == null) {
-//			throw new IOException("连接失败");
-//		}
-//		conn.userAgent("Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
-//		conn.method(Method.POST);
-//		Response response = conn.execute();
-//		Map<String, String> cookies = response.cookies();
-//		sessionID = cookies.get(CookieManager.SESSIONID);
-//		System.out.println(sessionID);
-//		if (!SESSIONID.equalsIgnoreCase(sessionID)) {
-//			SESSIONID = sessionID;
-//		}
-//		Document document = conn.get();
-//		return document;
-//	}
 
 	/**
 	 * 
 	 * \brief searchThsis 根据论文标题搜索相关信息
+	 * 
 	 * @param thsisTitle
 	 * @return
 	 * @throws IOException
-	 * @attention 方法的使用注意事项 
+	 * @attention 方法的使用注意事项
 	 * @author zhangjunyong
-	 * @date 2014年3月28日 
-	 * @note  begin modify by 修改人 修改时间   修改内容摘要说明
+	 * @date 2014年3月28日
+	 * @note begin modify by 修改人 修改时间 修改内容摘要说明
 	 */
 	public static Thsis searchThsis(Thsis t) throws IOException {
 		String encodedThsisTitle = t.getTitle().trim().replace(" ", "+");
@@ -116,9 +100,9 @@ public final class GoogleScholarReaderHelper {
 			break;
 		}
 		// 得到论文数大于1，日志记录
-//		if (thsisElements.size() > 0) {
-//			System.out.println(t.getTitle() + "size > 1");
-//		}
+		if (thsisElements.size() > 0) {
+			logger.warn(String.format("返回多条论文数据，size：", thsisElements.size()));
+		}
 		return t;
 	}
 
@@ -151,11 +135,14 @@ public final class GoogleScholarReaderHelper {
 	private static String getCitedBy(Element e) {
 		Elements fl = e.getElementsByClass(THSIS_CITIEDBY_CLASS);
 		String text = fl.select("a[href]").first().text();
-		if(text.length() > 8){
-			return text.substring(8, text.length());
-		}else{
-			return "-1";
+		// 查找文本中包含的数字
+		Pattern pattern = Pattern.compile("\\d+");
+		Matcher matcher = pattern.matcher(text);
+		String citedBy = "0";
+		while (matcher.find()) {
+			citedBy = matcher.group(0);
+			break;
 		}
-		
+		return citedBy;
 	}
 }
