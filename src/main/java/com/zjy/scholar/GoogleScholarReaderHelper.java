@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import org.jsoup.Connection;
 import org.jsoup.Connection.Method;
+import org.jsoup.Connection.Response;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -55,19 +56,31 @@ public final class GoogleScholarReaderHelper {
 	 * @date 2014年3月28日
 	 * @note begin modify by 修改人 修改时间 修改内容摘要说明
 	 */
-	public static Document connect(String url) throws IOException {
+	public static Document connect(String url){
 		logger.info("开启连接");
 		// 建立连接
 		Connection conn = Jsoup.connect(url);
+		Document document = null;
 		conn.header("Referer", "http://scholar.google.com/");
 		// 设置代理
 		conn.userAgent("Mozilla/17.0 (compatible; MSIE 6.0; Windows NT 5.0)");
 		conn.timeout(3*1000);
 		conn.method(Method.POST);
+		try{
+			Response response = conn.execute();
+			int statusCode = response.statusCode();
+			if(statusCode == 200) {
+				// 获取返回信息
+				document = conn.get();
+				logger.info("成功获取文档信息");
+			}
+			else {
+			    System.out.println("received error code : " + statusCode);
+			}
+		}catch(IOException ioe){
+			logger.error(String.format("建立连接失败，错误信息:%s",ioe.toString()));
+		}
 		
-		// 获取返回信息
-		Document document = conn.get();
-		logger.info("成功获取文档信息");
 		return document;
 	}
 
@@ -89,6 +102,9 @@ public final class GoogleScholarReaderHelper {
 		String url = GCR_SEARCH_THSIS_URL + encodedThsisTitle;
 		// 得到响应
 		Document htmldoc = connect(url);
+		if(htmldoc == null){
+			return null;
+		}
 		// 得到论文信息
 		Elements thsisElements = htmldoc
 				.getElementsByClass(THSIS_ELEMENT_CLASS);
