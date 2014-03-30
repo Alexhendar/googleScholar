@@ -50,22 +50,24 @@ public class ScholarMain {
 				Thread.sleep(random.nextInt(15)*1000);
 				logger.info(String.format("获取第%s个论文信息,标题：%s", count,t.getTitle()));
 				t = GoogleScholarReaderHelper.searchThsis(t);
-				String[] outArr = new String[4];
-				outArr[0] = t.getMeeting();
-				outArr[1] = t.getTitle();
-				outArr[2] = t.getAuthors();
-				outArr[3] = t.getCitiedBy();
-				outputList.add(outArr);
+				if(t != null){
+					String[] outArr = new String[4];
+					outArr[0] = t.getMeeting();
+					outArr[1] = t.getTitle();
+					outArr[2] = t.getAuthors();
+					outArr[3] = t.getCitiedBy();
+					outputList.add(outArr);
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-//			break;
-			if(count >=100){
-				break;
-			}
-			count++;
+			break;
+//			if(count >=100){
+//				break;
+//			}
+//			count++;
 		}
 		CSVManager.writeCSV(outputList);
 	}
